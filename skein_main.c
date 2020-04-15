@@ -8,8 +8,6 @@
 //#define SKEIN_TEST_MSG2
 #define SKEIN_TEST_MSG3
 
-
-//uint64_t hash[4];
 uint8_t hash[SKEIN_BLK_BYTES];
 
 #if defined(SKEIN_TEST_CONFIG) || defined(SKEIN_TEST_MSG1)
@@ -57,7 +55,7 @@ int main()
 #else  /*SKEIN_PARTS_TESTS */
 	skein_hash(hash, msg, SKEIN_MSG_LEN);
     printf("\nTesting with %s", TST_MSG);
-    printf("\nRessult is:");
+    printf("\nResult is:");
 	skein_prthash(hash);
 	printf("\nResult should be:\n");
 
