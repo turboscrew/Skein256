@@ -2,6 +2,7 @@ By Juha Aaltonen 15.4.2020
 
 # SKEIN256 HASH
 ## As described in paper "skein 1.3"
+<http://www.skein-hash.info/sites/default/files/skein1.3.pdf>
 
 ### Description
 This is a "conceptually closer" C implementation of SKEIN256 hash.
