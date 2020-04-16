@@ -78,11 +78,11 @@ void skein_set_final(skein_tweak_t *w, uint8_t val)
 {
 	if (val)
 	{
-		w->byte[15] |= 1 << 7;
+		w->word[1] |= (1L) << (127 - 64);	
 	}
 	else
 	{
-		w->byte[15] &= ~(1 << 7);
+		w->word[1] &= ~((1L) << (127 - 64));
 	}
 }
 
@@ -90,18 +90,18 @@ void skein_set_first(skein_tweak_t *w, uint8_t val)
 {
 	if (val)
 	{
-		w->byte[15] |= 1 << 6;
+		w->word[1] |= (1L) << (126 - 64);	
 	}
 	else
 	{
-		w->byte[15] &= ~(1 << 6);
+		w->word[1] &= ~((1L) << (126 - 64));
 	}
 }
 
 void skein_set_type(skein_tweak_t *w, uint8_t val)
 {
-	w->byte[15] &= 0xC0;
-	w->byte[15] |= (val & 0x3F);	
+	w->word[1] &= (0xC0L) << (120 - 64);
+	w->word[1] |= ((uint64_t)(val & 0x3F)) << (120 - 64);
 }
 
 void skein_set_pos(skein_tweak_t *w, uint64_t val)
