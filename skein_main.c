@@ -3,10 +3,13 @@
 
 /* test program for the skein256 hash */
 
-//#define SKEIN_PARTS_TESTS
-//#define SKEIN_TEST_MSG1
+#define SKEIN_TEST_MSG1
 //#define SKEIN_TEST_MSG2
-#define SKEIN_TEST_MSG3
+//#define SKEIN_TEST_MSG3
+
+#if defined(SKEIN_DEBUG) || defined(SKEIN_VERBOSE_DEBUG)
+#define SKEIN_PARTS_TESTS
+#endif
 
 uint8_t hash[SKEIN_BLK_BYTES];
 
@@ -50,10 +53,10 @@ void skein_prthash(uint8_t *s)
 
 int main()
 {
+	skein_context_t ctx;
 #ifdef SKEIN_PARTS_TESTS	
 	skein_parts_test();
-#else  /*SKEIN_PARTS_TESTS */
-	skein_context_t ctx;
+#endif  /*SKEIN_PARTS_TESTS */
 	skein_hash(hash, msg, SKEIN_MSG_LEN);
     printf("\nTesting with %s", TST_MSG);
     printf("\nResult is:");
@@ -80,6 +83,5 @@ int main()
     printf("\nResult is:");
 	skein_prthash(hash);
 
-#endif /*SKEIN_PARTS_TESTS */
 	return 0;
 }

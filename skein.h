@@ -2,6 +2,9 @@
 
 #include <stdint.h>
 
+//#define SKEIN_DEBUG
+//#define SKEIN_VERBOSE_DEBUG
+
 #define SKEIN_BLK_BYTES 32
 
 /* types */

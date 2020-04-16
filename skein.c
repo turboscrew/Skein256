@@ -1,10 +1,14 @@
 /* Skein256 hash as described in the paper "skein 1.3" */
 
-#include <stdio.h>
 #include "skein.h"
 
-//#define SKEIN_DEBUG
-//#define SKEIN_VERBOSE_DEBUG
+#if defined(SKEIN_DEBUG) || defined(SKEIN_VERBOSE_DEBUG)
+#define SKEIN_PRINT
+#endif
+
+#ifdef SKEIN_PRINT
+#include <stdio.h>
+#endif
 
 #define SKEIN_ROUNDS 72
 
@@ -16,18 +20,7 @@ uint8_t skein_rot_tbl[2][8] =
 
 skein_conf_str_t skein_conf_str;
 
-void skein_reverse_bytes(uint8_t *s, uint8_t len)
-{
-	uint8_t tmp;
-	uint8_t i;
-	for (i = 0; i < len / 2; i ++)
-	{
-		tmp = s[i];
-		s[i] = s[(len - 1) - i];
-		s[(len - 1) - i] = tmp;
-	}
-}
-
+#ifdef SKEIN_PRINT
 void skein_print_words(uint64_t *w, uint8_t cnt)
 {
 	uint8_t i;
@@ -37,6 +30,7 @@ void skein_print_words(uint64_t *w, uint8_t cnt)
 		printf("0x%016lX\n", *(w++));
 	}
 }
+#endif
 
 void mk_skein_block_b(skein_word_t *w, uint8_t *s)
 {
@@ -487,6 +481,7 @@ void skein_final(skein_context_t *ctx, uint8_t *hash)
 	}	
 }
 
+#ifdef SKEIN_PRINT
 void skein_parts_test(void)
 {
 	uint64_t tst1, tst2;
@@ -543,3 +538,4 @@ void skein_parts_test(void)
 
 	printf("\nend of tests\n\n");
 }
+#endif
