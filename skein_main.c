@@ -53,6 +53,7 @@ int main()
 #ifdef SKEIN_PARTS_TESTS	
 	skein_parts_test();
 #else  /*SKEIN_PARTS_TESTS */
+	skein_context_t ctx;
 	skein_hash(hash, msg, SKEIN_MSG_LEN);
     printf("\nTesting with %s", TST_MSG);
     printf("\nResult is:");
@@ -71,6 +72,14 @@ int main()
 	printf(" DF 28 E9 16 63 0D 0B 44 C4 A8 49 DC 9A 02 F0 7A\n");
 	printf(" 07 CB 30 F7 32 31 82 56 B1 5D 86 5A C4 AE 16 2F\n");
 #endif
+
+	skein_init(&ctx);
+	skein_update(&ctx, msg, SKEIN_MSG_LEN);
+	skein_final(&ctx, hash);
+    printf("\nTesting init-update-final with %s", TST_MSG);
+    printf("\nResult is:");
+	skein_prthash(hash);
+
 #endif /*SKEIN_PARTS_TESTS */
 	return 0;
 }

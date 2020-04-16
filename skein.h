@@ -47,6 +47,13 @@ typedef union {
 	uint64_t word[2];
 } skein_tweak_t;
 
+typedef struct {
+	skein_word_t G;
+	skein_tweak_t T;
+	skein_word_t buff;
+	uint8_t buff_bytes;
+} skein_context_t;
+
 void mk_skein_block_b(skein_word_t *w, uint8_t *s);
 void mk_skein_tweak_b(skein_tweak_t *w, uint8_t *s);
 void skein_set_final(skein_tweak_t *w, uint8_t val);
@@ -56,6 +63,9 @@ void skein_set_pos(skein_tweak_t *w, uint64_t val);
 uint64_t skein_get_pos(skein_tweak_t *w);
 
 void skein_hash(uint8_t *hash, uint8_t *M, uint32_t mlen);
+void skein_init(skein_context_t *ctx);
+void skein_update(skein_context_t *ctx, uint8_t *msg, uint32_t mlen);
+void skein_final(skein_context_t *ctx, uint8_t *hash);
 
 /* for testing and debugging */
 void threefish(skein_word_t *K, skein_tweak_t *T, skein_word_t *P, skein_word_t *E);

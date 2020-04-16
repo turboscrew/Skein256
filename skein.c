@@ -5,6 +5,7 @@
 
 //#define SKEIN_DEBUG
 //#define SKEIN_VERBOSE_DEBUG
+
 #define SKEIN_ROUNDS 72
 
 uint8_t skein_rot_tbl[2][8] =
@@ -275,22 +276,16 @@ void mk_skein_conf(void)
 
 void UBI(skein_word_t *G, skein_tweak_t *T, uint8_t *M, uint32_t mlen)
 {
-	uint32_t i, j;
+	uint32_t i;
 	skein_word_t P;
-	uint8_t buff[SKEIN_BLK_BYTES];
 
 	i = mlen / SKEIN_BLK_BYTES; /* full blocks */
-	j = mlen % SKEIN_BLK_BYTES; /* last partial block bytes */
 	
+	if (i * SKEIN_BLK_BYTES < mlen) i++;
 	while (i > 0) /* while full blocks of data */
 	{
-		if ((i == 1) && (j == 0))
-		{
-			/* last block is full */
-			skein_set_final(T, 1);
-		}
 		/* set handled bytes - current block included */
-		skein_set_pos(T, skein_get_pos(T) + SKEIN_BLK_BYTES);
+		skein_set_pos(T, skein_get_pos(T) + mlen);
 		mk_skein_block_b(&P, M);
 #ifdef SKEIN_DEBUG
 		printf("\nUbi data:\n");
@@ -308,45 +303,15 @@ void UBI(skein_word_t *G, skein_tweak_t *T, uint8_t *M, uint32_t mlen)
 		skein_set_first(T, 0);
 		i--; /* one block less to handle */
 	}
-	if (j > 0) /* possible last non-full block */
-	{
-		/* set handled bytes - current block included */
-		skein_set_pos(T, skein_get_pos(T) + (uint64_t)j);
-		/* take the bytes and zero-pad the last block */
-		for (i = 0; i < SKEIN_BLK_BYTES; i++)
-		{
-#if 1
-			if (i < j) buff[i] = M[i];
-			else buff[i] = 0; /* zero-pad */
-			mk_skein_block_b(&P, buff);
-#else
-			if (i < j) P.byte[i] = M[i];
-			else P.byte[i] = 0; /* zero-pad */
-#endif
-		}
-#ifdef SKEIN_DEBUG
-		printf("\nUbi data:\n");
-		skein_print_words(P.word, 4);
-#endif
-		skein_set_final(T, 1);
-		threefish(G, T, &P, G);
-		
-		/* "feedforward" */
-		G->word[0] ^= P.word[0];
-		G->word[1] ^= P.word[1];
-		G->word[2] ^= P.word[2];
-		G->word[3] ^= P.word[3];
-
-		skein_set_first(T, 0);
-	}
 }
 
 void skein_hash(uint8_t *hash, uint8_t *M, uint32_t mlen)
 {
 	uint8_t i;
+	uint32_t f, b;
 	skein_word_t G;
 	skein_tweak_t T;
-	skein_word_t zero;
+	skein_word_t tmp_msg;
 	
 	/* configure */
 #if 0
@@ -378,7 +343,38 @@ void skein_hash(uint8_t *hash, uint8_t *M, uint32_t mlen)
 	skein_set_final(&T, 0);
 	skein_set_type(&T, SKEIN_TYPE_MSG);
 	skein_set_pos(&T, 0L);
-	UBI(&G, &T, M, mlen);
+	f = mlen / SKEIN_BLK_BYTES; /* full blocks */
+	b = mlen % SKEIN_BLK_BYTES; /* last partial block bytes */
+	if (b == 0) /* only full blocks */
+	{
+		/* save last full block for final */
+		f -=1;
+		b = SKEIN_BLK_BYTES;
+	}
+	if (f > 0)
+	{
+		/* all non-last blocks */
+		UBI(&G, &T, M, f * SKEIN_BLK_BYTES);
+		M += f * SKEIN_BLK_BYTES;
+	}
+	/* handle final block */
+	for (i = 0; i < SKEIN_BLK_BYTES; i++)
+	{
+		/* zero-fill last block if needed */
+		if (i < b)
+		{
+			tmp_msg.byte[i] = *(M++);
+		}
+		else
+		{
+			tmp_msg.byte[i] = 0;
+		}
+	}
+	skein_set_final(&T, 1);
+	UBI(&G, &T, tmp_msg.byte, b);
+
+	/* last block */
+	
 #ifdef SKEIN_DEBUG
 	printf("Message UBI result\n");
 	skein_print_words(G.word, 4);
@@ -388,11 +384,11 @@ void skein_hash(uint8_t *hash, uint8_t *M, uint32_t mlen)
 	skein_set_final(&T, 1);
 	skein_set_type(&T, SKEIN_TYPE_OUT);
 	skein_set_pos(&T, 0L);
-	zero.word[0] = 0L;
-	zero.word[1] = 0L;
-	zero.word[2] = 0L;
-	zero.word[3] = 0L;
-	UBI(&G, &T, zero.byte, sizeof(uint64_t));
+	tmp_msg.word[0] = 0L;
+	tmp_msg.word[1] = 0L;
+	tmp_msg.word[2] = 0L;
+	tmp_msg.word[3] = 0L;
+	UBI(&G, &T, tmp_msg.byte, sizeof(uint64_t));
 #ifdef SKEIN_DEBUG
 	printf("Output UBI result\n");
 	skein_print_words(G.word, 4);
@@ -401,6 +397,94 @@ void skein_hash(uint8_t *hash, uint8_t *M, uint32_t mlen)
 	{
 		*(hash++) =G.byte[i];
 	}
+}
+
+void skein_init(skein_context_t *ctx)
+{
+	/* replace config UBI with IV */
+	ctx->G.word[0] = 0xFC9DA860D048B449L;
+	ctx->G.word[1] = 0x2FCA66479FA7D833L;
+	ctx->G.word[2] = 0xB33BC3896656840FL;
+	ctx->G.word[3] = 0x6A54E920FDE8DA69L;
+	/* set up for first message UBI */
+	ctx->T.word[0] = 0L;
+	ctx->T.word[1] = 0L;
+	skein_set_first(&(ctx->T), 1);
+	skein_set_final(&(ctx->T), 0);
+	skein_set_type(&(ctx->T), SKEIN_TYPE_MSG);
+	skein_set_pos(&(ctx->T), 0L);
+	ctx->buff_bytes = 0;
+}
+
+void skein_update(skein_context_t *ctx, uint8_t *msg, uint32_t mlen)
+{
+	uint8_t i, j;
+	uint32_t total_bytes, f, b;
+	
+	if (mlen == 0) return;
+
+	total_bytes = mlen + (uint32_t)(ctx->buff_bytes);
+	
+	f = total_bytes / SKEIN_BLK_BYTES; /* full blocks */
+	b = total_bytes % SKEIN_BLK_BYTES; /* last partial block bytes */
+	if (b == 0) /* only full blocks */
+	{
+		/* save last full block for final */
+		f -=1;
+		b = SKEIN_BLK_BYTES;
+	}
+	if (f > 0)
+	{
+		/* handle buffered data first */
+		for (i = ctx->buff_bytes; i < SKEIN_BLK_BYTES; i++)
+		{
+			ctx->buff.byte[i] = *(msg++);
+		}
+		UBI(&(ctx->G), &(ctx->T), ctx->buff.byte, SKEIN_BLK_BYTES);
+		ctx->buff_bytes = 0; /* buffer used */
+		f--;
+		/* rest of full blocks */
+		if (f)
+		{
+			UBI(&(ctx->G), &(ctx->T), msg, f * SKEIN_BLK_BYTES);
+		}
+		msg += f * SKEIN_BLK_BYTES;	
+	}
+	/* buffer last, possibly non-full block */
+	for (i = 0; i < b; i++)
+	{
+		ctx->buff.byte[i] = *(msg++);
+	}
+	ctx->buff_bytes = b;
+}
+
+void skein_final(skein_context_t *ctx, uint8_t *hash)
+{
+	uint8_t i;
+	skein_word_t tmp_msg;
+	
+	/* handle buffered bytes - there must be some */
+	for (i = ctx->buff_bytes; i < SKEIN_BLK_BYTES; i++)
+	{
+		/* zero-fill */
+		ctx->buff.byte[i] = 0;
+	}
+	skein_set_final(&(ctx->T), 1);
+	UBI(&(ctx->G), &(ctx->T), ctx->buff.byte, ctx->buff_bytes);
+	/* get output */
+	skein_set_first(&(ctx->T), 1);
+	skein_set_final(&(ctx->T), 1);
+	skein_set_type(&(ctx->T), SKEIN_TYPE_OUT);
+	skein_set_pos(&(ctx->T), 0L);
+	tmp_msg.word[0] = 0L;
+	tmp_msg.word[1] = 0L;
+	tmp_msg.word[2] = 0L;
+	tmp_msg.word[3] = 0L;
+	UBI(&(ctx->G), &(ctx->T), tmp_msg.byte, sizeof(uint64_t));
+	for (i = 0; i < SKEIN_BLK_BYTES; i++)
+	{
+		hash[i] = ctx->G.byte[i];
+	}	
 }
 
 void skein_parts_test(void)
